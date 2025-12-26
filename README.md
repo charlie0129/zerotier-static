@@ -120,6 +120,18 @@ sudo zerotier-one -d  # Start daemon
 zerotier-cli join <network-id>
 ```
 
+### Acting as Moon
+
+The following example uses standalone binaries. Adjust commands accordingly for Docker.
+
+```bash
+zerotier-idtool initmoon /var/lib/zerotier-one/identity.public >>/var/lib/zerotier-one/moon.json
+zerotier-idtool genmoon /var/lib/zerotier-one/moon.json
+mkdir -p /var/lib/zerotier-one/moons.d/
+mv *.moon /var/lib/zerotier-one/moons.d/
+# Restart ZeroTier to load the moon configuration
+```
+
 ### Common Commands
 
 ```bash
