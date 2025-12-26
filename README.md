@@ -30,14 +30,12 @@ Download the latest release for your architecture:
 VERSION=1.16.0
 wget https://github.com/charlie0129/zerotier-static-docker/releases/latest/download/zerotier-static-$VERSION-amd64.tar.gz
 tar -xzf zerotier-static-$VERSION-amd64.tar.gz
-sudo cp zerotier-* /usr/local/bin/
-sudo chmod +x /usr/local/bin/zerotier-*
+sudo cp -d zerotier-* /usr/local/bin/
 
 # For ARM64
 wget https://github.com/charlie0129/zerotier-static-docker/releases/latest/download/zerotier-static-$VERSION-arm64.tar.gz
 tar -xzf zerotier-static-$VERSION-arm64.tar.gz
-sudo cp zerotier-* /usr/local/bin/
-sudo chmod +x /usr/local/bin/zerotier-*
+sudo cp -d zerotier-* /usr/local/bin/
 ```
 
 ### Using Docker
@@ -91,10 +89,11 @@ Extract the binaries:
 
 ```bash
 docker create --name temp zerotier-static
-docker cp temp:/usr/sbin/zerotier-cli ./
-docker cp temp:/usr/sbin/zerotier-idtool ./
 docker cp temp:/usr/sbin/zerotier-one ./
 docker rm temp
+
+ln -sf zerotier-one zerotier-cli
+ln -sf zerotier-one zerotier-idtool
 ```
 
 ## What's Included

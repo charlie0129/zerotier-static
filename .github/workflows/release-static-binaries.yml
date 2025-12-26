@@ -178,8 +178,7 @@ jobs:
             2. Extract and install:
                ```bash
                tar -xzf zerotier-static-${{ steps.version.outputs.zerotier_version }}-<arch>.tar.gz
-               sudo cp zerotier-* /usr/local/bin/
-               sudo chmod +x /usr/local/bin/zerotier-*
+               sudo cp -d zerotier-* /usr/local/bin/
                ```
             
             3. Verify the checksum:
