@@ -1,0 +1,203 @@
+name: Build and Release Static Binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      zerotier_version:
+        description: 'ZeroTier Version (e.g., 1.16.0)'
+        required: true
+        default: '1.16.0'
+      release_tag:
+        description: 'Release Tag (e.g., v1.16.0)'
+        required: true
+        default: 'v1.16.0'
+  push:
+    tags:
+      - 'v*'
+
+env:
+  # Edit this to change the ZeroTier version
+  ZEROTIER_VERSION: "1.16.0"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Determine version and tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "ZEROTIER_VERSION=${{ github.event.inputs.zerotier_version }}" >> $GITHUB_ENV
+            echo "RELEASE_TAG=${{ github.event.inputs.release_tag }}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+          echo "zerotier_version=${ZEROTIER_VERSION}" >> $GITHUB_OUTPUT
+          echo "release_tag=${RELEASE_TAG:-${GITHUB_REF#refs/tags/}}" >> $GITHUB_OUTPUT
+
+      - name: Determine architecture
+        id: arch
+        run: |
+          PLATFORM="${{ matrix.platform }}"
+          ARCH="${PLATFORM#linux/}"
+          echo "arch=${ARCH}" >> $GITHUB_OUTPUT
+          
+          # Docker platform to GOARCH mapping
+          case "$ARCH" in
+            amd64)
+              echo "goarch=amd64" >> $GITHUB_OUTPUT
+              ;;
+            arm64)
+              echo "goarch=arm64" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "goarch=${ARCH}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: zerotier-static:${{ steps.arch.outputs.arch }}
+          build-args: |
+            ZEROTIER_VERSION=${{ steps.version.outputs.zerotier_version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract binaries from Docker image
+        run: |
+          mkdir -p binaries
+          
+          # Create a container from the image
+          CONTAINER_ID=$(docker create zerotier-static:${{ steps.arch.outputs.arch }})
+          
+          # Copy the binaries
+          docker cp $CONTAINER_ID:/usr/sbin/zerotier-cli binaries/
+          docker cp $CONTAINER_ID:/usr/sbin/zerotier-idtool binaries/
+          docker cp $CONTAINER_ID:/usr/sbin/zerotier-one binaries/
+          
+          # Clean up
+          docker rm $CONTAINER_ID
+          
+          # Verify binaries are static
+          echo "Checking if binaries are statically linked:"
+          file binaries/zerotier-*
+          ldd binaries/zerotier-* || echo "✓ Binaries are statically linked"
+
+      - name: Create tarball
+        run: |
+          cd binaries
+          tar -czf ../zerotier-static-${{ steps.version.outputs.zerotier_version }}-${{ steps.arch.outputs.arch }}.tar.gz *
+          cd ..
+          sha256sum zerotier-static-${{ steps.version.outputs.zerotier_version }}-${{ steps.arch.outputs.arch }}.tar.gz > zerotier-static-${{ steps.version.outputs.zerotier_version }}-${{ steps.arch.outputs.arch }}.tar.gz.sha256
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zerotier-static-${{ steps.arch.outputs.arch }}
+          path: |
+            zerotier-static-*.tar.gz
+            zerotier-static-*.tar.gz.sha256
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine version and tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "ZEROTIER_VERSION=${{ github.event.inputs.zerotier_version }}" >> $GITHUB_ENV
+            echo "RELEASE_TAG=${{ github.event.inputs.release_tag }}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+          echo "zerotier_version=${ZEROTIER_VERSION}" >> $GITHUB_OUTPUT
+          echo "release_tag=${RELEASE_TAG:-${GITHUB_REF#refs/tags/}}" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -name "*.tar.gz*" -exec cp {} release-assets/ \;
+          ls -lh release-assets/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          name: ZeroTier Static ${{ steps.version.outputs.zerotier_version }}
+          body: |
+            ## ZeroTier Static Binaries - Version ${{ steps.version.outputs.zerotier_version }}
+            
+            Statically-linked ZeroTier One binaries that can run on any Linux system.
+            
+            ### Included Binaries
+            - `zerotier-one` - ZeroTier service daemon
+            - `zerotier-cli` - Command-line interface
+            - `zerotier-idtool` - Identity generation tool
+            
+            ### Installation
+            
+            1. Download the tarball for your architecture:
+               - `zerotier-static-${{ steps.version.outputs.zerotier_version }}-amd64.tar.gz` for x86_64
+               - `zerotier-static-${{ steps.version.outputs.zerotier_version }}-arm64.tar.gz` for ARM64
+            
+            2. Extract and install:
+               ```bash
+               tar -xzf zerotier-static-${{ steps.version.outputs.zerotier_version }}-<arch>.tar.gz
+               sudo cp zerotier-* /usr/local/bin/
+               sudo chmod +x /usr/local/bin/zerotier-*
+               ```
+            
+            3. Verify the checksum:
+               ```bash
+               sha256sum -c zerotier-static-${{ steps.version.outputs.zerotier_version }}-<arch>.tar.gz.sha256
+               ```
+            
+            ### Docker Image
+            
+            Also available as a Docker image:
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.zerotier_version }}
+            ```
+            
+            ### Upstream
+            
+            Built from [ZeroTier/ZeroTierOne](https://github.com/zerotier/ZeroTierOne) version ${{ steps.version.outputs.zerotier_version }}
+          files: release-assets/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
