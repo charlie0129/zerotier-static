@@ -214,9 +214,10 @@ The `release-static-binaries.yml` workflow builds static binaries and creates Gi
 
 **To create a new release:**
 
-1. Go to Actions → "Build and Release Static Binaries" → "Run workflow"
-2. Enter the ZeroTier version and release tag
-3. The workflow will build binaries for all architectures and create a release
+1. Push a tag (e.g., `v1.16.0`)
+2. Go to Actions → "Build and Release Static Binaries" → "Run workflow". Make sure to select the tag in `Use workflow from`.
+3. Enter the ZeroTier version and release tag
+4. The workflow will build binaries for all architectures and create a release
 
 Or push a tag:
 
