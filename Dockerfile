@@ -20,10 +20,10 @@ RUN HTTPS_PROXY=$HTTPS_PROXY LDFLAGS=-static make -j$(nproc)
 
 FROM ${BASE_IMAGE}
 
-COPY --from=build /zerotier/zerotier-cli \
-    /zerotier/zerotier-idtool \
-    /zerotier/zerotier-one \
-    /usr/sbin/
+COPY --from=build /zerotier/zerotier-one /usr/sbin/
+RUN cd /usr/sbin/ && \
+    ln -sf zerotier-one zerotier-idtool && \
+    ln -sf zerotier-one zerotier-cli
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod 755 /entrypoint.sh

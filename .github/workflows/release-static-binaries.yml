@@ -93,17 +93,18 @@ jobs:
           CONTAINER_ID=$(docker create zerotier-static:${{ steps.arch.outputs.arch }})
           
           # Copy the binaries
-          docker cp $CONTAINER_ID:/usr/sbin/zerotier-cli binaries/
-          docker cp $CONTAINER_ID:/usr/sbin/zerotier-idtool binaries/
           docker cp $CONTAINER_ID:/usr/sbin/zerotier-one binaries/
           
           # Clean up
           docker rm $CONTAINER_ID
+
+          ln -sf zerotier-one binaries/zerotier-idtool
+          ln -sf zerotier-one binaries/zerotier-cli
           
           # Verify binaries are static
           echo "Checking if binaries are statically linked:"
-          file binaries/zerotier-*
-          ldd binaries/zerotier-* || echo "✓ Binaries are statically linked"
+          file binaries/zerotier-one
+          ldd binaries/zerotier-one || echo "✓ Binaries are statically linked"
 
       - name: Create tarball
         run: |
@@ -165,8 +166,8 @@ jobs:
             
             ### Included Binaries
             - `zerotier-one` - ZeroTier service daemon
-            - `zerotier-cli` - Command-line interface
-            - `zerotier-idtool` - Identity generation tool
+            - `zerotier-cli` - Command-line interface (symlink of zerotier-one)
+            - `zerotier-idtool` - Identity generation tool (symlink of zerotier-one)
             
             ### Installation
             
