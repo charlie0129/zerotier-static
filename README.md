@@ -40,13 +40,14 @@ sudo cp -d zerotier-* /usr/local/bin/
 
 ### Using Docker
 
+> Same as the official ZeroTier image, but with smaller image size. https://hub.docker.com/r/zerotier/zerotier
+
 Run ZeroTier in a container:
 
 ```bash
 docker run -d \
   --name zerotier \
   --cap-add NET_ADMIN \
-  --cap-add SYS_ADMIN \
   --device /dev/net/tun \
   -v /var/lib/zerotier-one:/var/lib/zerotier-one \
   ghcr.io/charlie0129/zerotier-static-docker:latest \
@@ -101,8 +102,8 @@ ln -sf zerotier-one zerotier-idtool
 The build produces three statically-linked binaries:
 
 - **`zerotier-one`** - The main ZeroTier service daemon
-- **`zerotier-cli`** - Command-line interface for managing ZeroTier
-- **`zerotier-idtool`** - Tool for generating and managing ZeroTier identities
+- **`zerotier-cli`** - Command-line interface for managing ZeroTier (symlink to `zerotier-one`)
+- **`zerotier-idtool`** - Tool for generating and managing ZeroTier identities (symlink to `zerotier-one`)
 
 All binaries are statically linked against musl libc and have no external dependencies.
 
