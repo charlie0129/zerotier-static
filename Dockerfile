@@ -28,6 +28,7 @@ RUN cd /usr/sbin/ && \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod 755 /entrypoint.sh
 
+# Script will be written by entrypoint.sh at start up.
 HEALTHCHECK --interval=1s CMD bash /healthcheck.sh
 
 CMD []
